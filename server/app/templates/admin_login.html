@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>登录 · OpenFeedback</title>
+<link rel="stylesheet" href="/static/admin.css">
+</head>
+<body class="login-page">
+  <form class="login-card" method="post" action="/admin/login">
+    <div class="login-brand"><span class="logo">OF</span></div>
+    <h1>OpenFeedback</h1>
+    <p class="muted">多应用统一反馈管理后台</p>
+    {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+    <label>
+      <span>用户名</span>
+      <input type="text" name="username" autocomplete="username" required autofocus>
+    </label>
+    <label>
+      <span>密码</span>
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button type="submit" class="btn btn-primary btn-block">登录</button>
+  </form>
+</body>
+</html>

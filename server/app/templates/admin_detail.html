@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}反馈 #{{ item.id }} · OpenFeedback{% endblock %}
+{% block content %}
+
+<a class="back-link" href="/admin">← 返回列表</a>
+
+<article class="detail">
+  <header class="detail-head">
+    <h1>{{ item.title or '（无标题）' }}</h1>
+    <div class="detail-tags">
+      <span class="tag tag-app">{{ item.app_id }}</span>
+      <span class="tag tag-type-{{ item.type }}">{{ item.type }}</span>
+      <span class="tag status-{{ item.status }}">{{ item.status }}</span>
+    </div>
+  </header>
+
+  <div class="detail-body">
+    <p class="detail-text">{{ item.description }}</p>
+
+    {% if item.diagnostics %}
+    <details class="diagnostics">
+      <summary>诊断信息</summary>
+      <pre>{{ item.diagnostics }}</pre>
+    </details>
+    {% endif %}
+  </div>
+
+  <section class="meta-grid">
+    <div class="meta"><span class="meta-label">提交时间</span><span class="meta-value">{{ item.created_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC</span></div>
+    <div class="meta"><span class="meta-label">App 版本</span><span class="meta-value">{{ item.app_version or '—' }}{% if item.app_build %} ({{ item.app_build }}){% endif %}</span></div>
+    <div class="meta"><span class="meta-label">SDK 版本</span><span class="meta-value">{{ item.sdk_version or '—' }}</span></div>
+    <div class="meta"><span class="meta-label">Android</span><span class="meta-value">{{ item.android_version or '—' }}{% if item.api_level %} · API {{ item.api_level }}{% endif %}</span></div>
+    <div class="meta"><span class="meta-label">设备</span><span class="meta-value">{{ item.manufacturer or '—' }} {{ item.model or '' }}</span></div>
+    <div class="meta"><span class="meta-label">语言</span><span class="meta-value">{{ item.locale or '—' }}</span></div>
+    <div class="meta"><span class="meta-label">联系方式</span><span class="meta-value">{{ item.contact or '—' }}</span></div>
+  </section>
+
+  {% if item.attachments %}
+  <section class="section">
+    <h2>截图 ({{ item.attachments|length }})</h2>
+    <div class="shots">
+      {% for att in item.attachments %}
+        <figure class="shot">
+          <a href="/api/v1/admin/attachments/{{ att.id }}" target="_blank" rel="noopener">
+            <img src="/api/v1/admin/attachments/{{ att.id }}" alt="{{ att.filename }}" loading="lazy">
+          </a>
+          <figcaption class="muted">{{ att.filename }} · {{ (att.file_size / 1024)|round(1) }} KB</figcaption>
+        </figure>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="section">
+    <h2>处理状态</h2>
+    <div class="status-actions">
+      {% for value, label in [('NEW','待处理'),('IN_PROGRESS','处理中'),('RESOLVED','已解决'),('CLOSED','已关闭')] %}
+        <button class="btn status-btn {{ 'is-active' if item.status == value }}"
+                data-id="{{ item.id }}" data-status="{{ value }}">{{ label }}</button>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>内部备注</h2>
+    <ul class="notes">
+      {% for note in item.notes %}
+        <li class="note">
+          <div class="note-head"><span class="note-author">{{ note.author }}</span>
+            <span class="muted">{{ note.created_at.strftime('%m-%d %H:%M') }}</span></div>
+          <div class="note-body">{{ note.content }}</div>
+        </li>
+      {% else %}
+        <li class="muted">还没有备注。</li>
+      {% endfor %}
+    </ul>
+    <form class="note-form" id="note-form" data-id="{{ item.id }}">
+      <textarea id="note-content" rows="3" placeholder="写下内部备注（仅管理员可见）" required></textarea>
+      <button class="btn btn-primary" type="submit">添加备注</button>
+    </form>
+  </section>
+
+  {% if item.status_history %}
+  <section class="section">
+    <h2>状态历史</h2>
+    <ul class="timeline">
+      {% for h in item.status_history %}
+        <li><span class="muted">{{ h.created_at.strftime('%m-%d %H:%M') }}</span>
+          {{ h.old_status or '创建' }} → <strong>{{ h.new_status }}</strong></li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+</article>
+
+{% endblock %}

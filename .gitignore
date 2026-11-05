@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Server runtime data
+server/data/
+server/.env
+*.db
+*.db-wal
+*.db-shm
+server/app/static/uploads/
+
+# Android / Gradle
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+captures/
+.cxx/
+*.iml
+.idea/
+.kotlin/
+
+# Rust
+target/
+**/*.rs.bk
+
+# Node / uni-app
+node_modules/
+dist/
+unpackage/
+.hbuilderx/
+
+# Local tooling and secrets
+.ssh_helper.py
+deploy/.env
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.DS_Store
+Thumbs.db

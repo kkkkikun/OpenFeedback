@@ -1,0 +1,41 @@
+# Caddy configuration for OpenFeedback.
+#
+# Caddy obtains and renews the TLS certificate automatically. Replace
+# feedback.example.com with the real hostname before starting.
+
+{
+	email admin@example.com
+}
+
+feedback.example.com {
+	encode zstd gzip
+
+	# Uploaded screenshots can be a few MB; the app's own limit is 2 MB per
+	# file and 3 files per submission.
+	request_body {
+		max_size 12MB
+	}
+
+	# The admin UI and the API are both behind this host.
+	handle {
+		reverse_proxy api:8080 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	log {
+		output stdout
+		format console
+		# The query string can carry a search term, so it is not logged.
+		format filter {
+			wrap console
+			fields {
+				uri query {
+					replace delete
+				}
+			}
+		}
+	}
+}

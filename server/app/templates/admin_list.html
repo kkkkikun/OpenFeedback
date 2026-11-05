@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}反馈列表 · OpenFeedback{% endblock %}
+{% block content %}
+
+<section class="stat-row">
+  <div class="stat stat-total">
+    <span class="stat-num">{{ total }}</span>
+    <span class="stat-label">全部</span>
+  </div>
+  <div class="stat stat-new">
+    <span class="stat-num">{{ stats['NEW'] }}</span>
+    <span class="stat-label">待处理</span>
+  </div>
+  <div class="stat stat-progress">
+    <span class="stat-num">{{ stats['IN_PROGRESS'] }}</span>
+    <span class="stat-label">处理中</span>
+  </div>
+  <div class="stat stat-resolved">
+    <span class="stat-num">{{ stats['RESOLVED'] }}</span>
+    <span class="stat-label">已解决</span>
+  </div>
+  <div class="stat stat-closed">
+    <span class="stat-num">{{ stats['CLOSED'] }}</span>
+    <span class="stat-label">已关闭</span>
+  </div>
+</section>
+
+<form class="filters" method="get" action="/admin">
+  <input type="search" name="q" value="{{ filters.q or '' }}" placeholder="搜索标题或描述">
+  <select name="app_id">
+    <option value="">全部应用</option>
+    {% for app in apps %}
+      <option value="{{ app.app_id }}" {% if filters.app_id == app.app_id %}selected{% endif %}>
+        {{ app.name }} ({{ per_app.get(app.app_id, 0) }})
+      </option>
+    {% endfor %}
+  </select>
+  <select name="status">
+    <option value="">全部状态</option>
+    {% for value, label in [('NEW','待处理'),('IN_PROGRESS','处理中'),('RESOLVED','已解决'),('CLOSED','已关闭')] %}
+      <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <select name="type">
+    <option value="">全部类型</option>
+    {% for value, label in [('bug','Bug'),('feature','功能建议'),('experience','体验问题'),('other','其他')] %}
+      <option value="{{ value }}" {% if filters.type == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn btn-primary" type="submit">筛选</button>
+  <a class="btn btn-ghost" href="/admin">重置</a>
+</form>
+
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>标题</th>
+        <th>应用</th>
+        <th>类型</th>
+        <th>状态</th>
+        <th>版本</th>
+        <th>截图</th>
+        <th>提交时间</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for item in items %}
+      <tr>
+        <td class="col-title">
+          <a href="/admin/feedback/{{ item.id }}">{{ item.title or item.description[:40] }}</a>
+        </td>
+        <td><span class="tag tag-app">{{ item.app_id }}</span></td>
+        <td><span class="tag tag-type-{{ item.type }}">{{ item.type }}</span></td>
+        <td><span class="tag status-{{ item.status }}">{{ item.status }}</span></td>
+        <td class="muted">{{ item.app_version or '—' }}</td>
+        <td class="muted">{{ item.attachments|length or '—' }}</td>
+        <td class="muted nowrap">{{ item.created_at.strftime('%m-%d %H:%M') }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="empty">还没有反馈。</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page > 1 or (items|length == page_size) %}
+<div class="pager">
+  {% if page > 1 %}
+    <a class="btn btn-ghost" href="?page={{ page - 1 }}">上一页</a>
+  {% endif %}
+  <span class="muted">第 {{ page }} 页</span>
+  {% if items|length == page_size %}
+    <a class="btn btn-ghost" href="?page={{ page + 1 }}">下一页</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,77 @@
+# OpenFeedback deployment.
+#
+# One API container, one Caddy for TLS, one SQLite file on a named volume.
+# A single worker is deliberate: SQLite plus an in-memory rate limiter is
+# only correct with one writer.
+
+name: openfeedback
+
+services:
+  api:
+    build:
+      context: ../server
+      dockerfile: ../deploy/Dockerfile
+    image: openfeedback-api:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      OF_DATA_DIR: /data
+      OF_ATTACHMENTS_DIR: /data/attachments
+      OF_PORT: "8080"
+      OF_ENVIRONMENT: production
+      # Caddy is the only thing in front of the app, and it runs in this
+      # compose network, so the proxy header is trustworthy here.
+      OF_TRUSTED_PROXY_HEADERS: "true"
+    volumes:
+      - ofdata:/data
+    networks:
+      - ofnet
+    # The API is not published to the host; Caddy reaches it over the
+    # internal network only.
+    expose:
+      - "8080"
+    mem_limit: 512m
+    cpus: "1.0"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    networks:
+      - ofnet
+    mem_limit: 128m
+    cpus: "0.5"
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  ofnet:
+    driver: bridge
+
+volumes:
+  ofdata:
+  caddydata:
+  caddyconfig:
