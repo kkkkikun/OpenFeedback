@@ -92,6 +92,10 @@ curl -X POST https://feedback.example.com/api/v1/feedback \
 | GET | `/api/v1/admin/feedback/{id}` | 反馈详情（含附件、备注、状态历史） |
 | PATCH | `/api/v1/admin/feedback/{id}` | 改状态，body `{"status":"RESOLVED"}` |
 | POST | `/api/v1/admin/feedback/{id}/notes` | 加内部备注，body `{"content":"..."}` |
+
+列表与详情都带 `submission_id`（客户端生成的提交标识）。它是去重的依据：
+客户端离线补发时带同一个 `submissionId`，服务端据此返回原记录而不新建。
+后台能看到它，才能判断两条记录是不是同一次提交的重复。
 | GET | `/api/v1/admin/attachments/{id}` | 下载截图（只有登录后可用） |
 
 登录：

@@ -168,3 +168,31 @@ def test_logout_invalidates_session(client, admin_login):
     assert client.get("/api/v1/admin/session").status_code == 200
     client.post("/api/v1/admin/logout")
     assert client.get("/api/v1/admin/session").status_code == 401
+
+
+def test_submission_id_is_visible_to_admins(client, app_row, admin_login):
+    """后台必须能看到 submission_id。
+
+    它是去重的依据：客户端离线补发时带同一个 submissionId，
+    服务端据此返回原记录而不新建。看不到它就无法判断
+    「这两条是不是同一次提交的重复」。
+    """
+    created = submit(client, payload(submissionId="visible-sub-id-1234")).json()
+    feedback_id = created["feedback_id"]
+
+    listing = client.get("/api/v1/admin/feedback").json()
+    assert any(
+        item["id"] == feedback_id and item["submission_id"] == "visible-sub-id-1234"
+        for item in listing
+    )
+
+    detail = client.get(f"/api/v1/admin/feedback/{feedback_id}").json()
+    assert detail["submission_id"] == "visible-sub-id-1234"
+
+
+def test_admin_detail_page_shows_submission_id(client, app_row, admin_login):
+    """详情页也要显示，否则浏览器里排查不了重复提交。"""
+    created = submit(client, payload(submissionId="visible-in-page-1234")).json()
+    response = client.get(f"/admin/feedback/{created['feedback_id']}")
+    assert response.status_code == 200
+    assert "visible-in-page-1234" in response.text

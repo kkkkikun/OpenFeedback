@@ -33,6 +33,7 @@
     <div class="meta"><span class="meta-label">设备</span><span class="meta-value">{{ item.manufacturer or '—' }} {{ item.model or '' }}</span></div>
     <div class="meta"><span class="meta-label">语言</span><span class="meta-value">{{ item.locale or '—' }}</span></div>
     <div class="meta"><span class="meta-label">联系方式</span><span class="meta-value">{{ item.contact or '—' }}</span></div>
+    <div class="meta"><span class="meta-label">提交标识</span><span class="meta-value"><code>{{ item.submission_id }}</code></span></div>
   </section>
 
   {% if item.attachments %}

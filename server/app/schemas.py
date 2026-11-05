@@ -93,6 +93,7 @@ class FeedbackOut(BaseModel):
 
     id: int
     app_id: str
+    submission_id: str
     type: str
     title: str | None
     description: str
@@ -137,6 +138,7 @@ class FeedbackDetail(BaseModel):
 
     id: int
     app_id: str
+    submission_id: str
     type: str
     title: str | None
     description: str

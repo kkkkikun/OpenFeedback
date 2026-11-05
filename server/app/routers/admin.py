@@ -186,6 +186,7 @@ def api_feedback_list(
         FeedbackOut(
             id=row.id,
             app_id=row.app_id,
+            submission_id=row.submission_id,
             type=row.type,
             title=row.title,
             description=row.description,
@@ -210,6 +211,7 @@ def api_feedback_detail(
     return FeedbackDetail(
         id=row.id,
         app_id=row.app_id,
+        submission_id=row.submission_id,
         type=row.type,
         title=row.title,
         description=row.description,
