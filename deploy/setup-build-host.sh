@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Toolchain setup for the OpenFeedback Android SDK build.
-# Runs on the private build host (172.16.38.110): JDK 17 + Android SDK 35.
+# Runs on a private build host: JDK 17 + Android SDK 35.
 set -euo pipefail
 
 SDK_ROOT="${OF_SDK_ROOT:-$HOME/android-sdk}"
@@ -27,9 +27,18 @@ echo "=== [3/5] installing platform-tools, platforms;android-35, build-tools;35.
   "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
 echo "=== [4/5] JDK 17 (matches both host apps' JVM target) ==="
-if ! update-alternatives --query java 2>/dev/null | grep -q '17'; then
-  echo "123456" | sudo -S apt-get install -y -q openjdk-17-jdk-headless >/dev/null 2>&1 || \
-    echo "WARN: apt install of openjdk-17 failed (may already be present)"
+if ! ls -d /usr/lib/jvm/java-17-openjdk* >/dev/null 2>&1; then
+  # No password is embedded here on purpose: run this as a user that can
+  # authenticate to sudo (a passwordless sudo rule, or run it under a shell
+  # where sudo is already authorised).
+  if ! sudo -n true 2>/dev/null; then
+    echo "JDK 17 is missing and passwordless sudo is not available." >&2
+    echo "Install it first, for example:" >&2
+    echo "  sudo apt-get install -y openjdk-17-jdk-headless" >&2
+  else
+    sudo -n apt-get install -y -q openjdk-17-jdk-headless >/dev/null 2>&1 \
+      || echo "WARN: apt install of openjdk-17 failed" >&2
+  fi
 fi
 ls /usr/lib/jvm 2>/dev/null || true
 

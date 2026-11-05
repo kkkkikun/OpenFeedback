@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Deploy OpenFeedback to the target server.
 #
-#   OF_DEPLOY_HOST=8.160.116.34 OF_DEPLOY_PORT=55971 OF_DEPLOY_USER=root \
-#   OF_PUBLIC_HOST=https://8.160.116.34 ./deploy/deploy.sh
+#   OF_DEPLOY_HOST=203.0.113.10 OF_DEPLOY_PORT=22 OF_DEPLOY_USER=root \
+#   OF_PUBLIC_HOST=https://feedback.example.com ./deploy/deploy.sh
 #
 # The script is idempotent: it syncs the code, refreshes .env (keeping the
 # existing secrets), rebuilds the image, and restarts the stack.
