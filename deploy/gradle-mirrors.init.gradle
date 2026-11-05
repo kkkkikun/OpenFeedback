@@ -1,12 +1,21 @@
-// Gradle repository fix for networks where Maven Central is unreachable.
+// Gradle repository fix for networks where the default repositories are unreachable.
 //
 // This lives in the developer's Gradle home, not in the project, so the
 // repository keeps working with the standard repositories everywhere else.
 //
-// It removes only the unreachable Maven Central entries and adds mirrors.
-// Repositories the project declares itself (for example the OpenFeedback
-// SDK's own Maven repository) are left alone on purpose: they are usually
-// file:// or a private host, and they must keep working.
+// Two rules, both learned the hard way:
+//
+// 1. Blocked hosts must be REMOVED, not just deprioritised. A blocked host that
+//    sits in front of the mirrors makes every resolution hang in TCP connect
+//    (SYN-SENT with no RST) instead of failing fast, so the build looks alive
+//    but never progresses.
+// 2. Mirrors must be tried FIRST, not appended. Gradle queries repositories in
+//    declaration order, so an appended mirror is only consulted after every
+//    original repository has already hung.
+//
+// Repositories the project declares itself (for example the OpenFeedback SDK's
+// own Maven repository) are left alone on purpose: they are usually file:// or
+// a private host, and they must keep working.
 
 def MIRRORS = [
     'https://maven.aliyun.com/repository/google',
@@ -14,10 +23,18 @@ def MIRRORS = [
     'https://maven.aliyun.com/repository/gradle-plugin',
 ]
 
+// Hosts that are unreachable from this network.
 def BLOCKED = [
     'repo.maven.apache.org',
     'repo1.maven.org',
+    'plugins.gradle.org',
+    'jcenter.bintray.com',
 ]
+
+// Fail fast instead of hanging on a black-holed TCP connect. Gradle reads
+// these when it creates its HTTP client, so they have to be set early.
+System.setProperty('org.gradle.internal.http.connectionTimeout', '20000')
+System.setProperty('org.gradle.internal.http.socketTimeout', '60000')
 
 def fixRepositories = { repos ->
     def blocked = repos.findAll { repo ->
@@ -30,11 +47,30 @@ def fixRepositories = { repos ->
     MIRRORS.eachWithIndex { repoUrl, index ->
         def name = "mirror${index}"
         if (repos.findByName(name) == null) {
-            repos.maven { repo ->
+            def mirror = repos.maven { repo ->
                 repo.name = name
                 repo.url = repoUrl
             }
+            // maven{} appends; move it to the front so it is queried first.
+            try {
+                repos.remove(mirror)
+                repos.add(0, mirror)
+            } catch (Exception ignored) {
+                // Ordering is a nice-to-have; correctness does not depend on it
+                // as long as the blocked hosts are gone.
+            }
         }
+    }
+}
+
+// beforeSettings runs before the settings script, so settings-level plugins
+// (a plugins {} block inside settings.gradle.kts) also see the mirrors.
+// settingsEvaluated runs after it and covers everything else.
+beforeSettings { settings ->
+    try {
+        fixRepositories(settings.pluginManagement.repositories)
+    } catch (Exception ignored) {
+        // No pluginManagement block yet; settingsEvaluated will handle it.
     }
 }
 
