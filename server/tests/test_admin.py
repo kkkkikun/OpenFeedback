@@ -196,3 +196,41 @@ def test_admin_detail_page_shows_submission_id(client, app_row, admin_login):
     response = client.get(f"/admin/feedback/{created['feedback_id']}")
     assert response.status_code == 200
     assert "visible-in-page-1234" in response.text
+
+
+def test_web_login_form_accepts_urlencoded_body(client):
+    """网页版的登录表单必须真的能登录。
+
+    回归：`username: str = ""` / `password: str = ""` 没声明成 Form(...)，
+    FastAPI 会把它们当成**查询参数**，于是 POST 的表单体被整个忽略 ——
+    表单登录永远返回 401「用户名或密码错误」，只有 API 登录能用。
+    """
+    response = client.post(
+        "/admin/login",
+        data={"username": "tester", "password": "test-password-123"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303, response.text
+    assert "/admin" in response.headers["location"]
+
+
+def test_web_login_form_rejects_a_wrong_password(client):
+    """密码错误时回到登录页并给出提示，不建立会话。"""
+    response = client.post(
+        "/admin/login",
+        data={"username": "tester", "password": "wrong-password"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 401
+    assert "用户名或密码错误" in response.text
+
+
+def test_web_login_form_sets_a_usable_session(client):
+    """表单登录成功后要带上会话 cookie，能直接打开后台。"""
+    client.post(
+        "/admin/login",
+        data={"username": "tester", "password": "test-password-123"},
+        follow_redirects=False,
+    )
+    assert client.get("/admin").status_code == 200
+    assert client.get("/api/v1/admin/session").status_code == 200

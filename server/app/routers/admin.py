@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Form, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_, select
@@ -410,8 +410,10 @@ def admin_login_page(request: Request, session: Session = Depends(get_db)):
 @router.post("/admin/login")
 def admin_login_submit(
     request: Request,
-    username: str = "",
-    password: str = "",
+    # 必须声明成 Form：写成普通 str 的话 FastAPI 会当成查询参数，
+    # 于是 POST 的表单体被整个忽略，登录永远返回「用户名或密码错误」。
+    username: str = Form(""),
+    password: str = Form(""),
     session: Session = Depends(get_db),
 ):
     ip = request.client.host if request.client else "0.0.0.0"
