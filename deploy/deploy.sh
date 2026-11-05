@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SSH=(ssh -p "$PORT" -o StrictHostKeyChecking=accept-new "$USER@$HOST")
 RSYNC=(rsync -az --delete -e "ssh -p $PORT")
 
-echo "=== [1/6] syncing code -> $USER@$HOST:$REMOTE_DIR ==="
+echo "=== [1/7] syncing code -> $USER@$HOST:$REMOTE_DIR ==="
 "${SSH[@]}" "mkdir -p '$REMOTE_DIR'"
 "${RSYNC[@]}" \
   --exclude '.git' \
@@ -33,7 +33,7 @@ echo "=== [1/6] syncing code -> $USER@$HOST:$REMOTE_DIR ==="
   --exclude 'deploy/.cache' \
   "$REPO_DIR/" "$USER@$HOST:$REMOTE_DIR/"
 
-echo "=== [2/6] preparing .env ==="
+echo "=== [2/7] preparing .env ==="
 # The heredoc is quoted so nothing is expanded locally; the values the
 # remote side needs arrive as positional arguments.
 "${SSH[@]}" bash -s -- "$PUBLIC_HOST" "$ACME_EMAIL" "$REMOTE_DIR" <<'REMOTE'
@@ -67,7 +67,7 @@ else
   grep -q '^ACME_EMAIL=' .env || echo "ACME_EMAIL=$ACME_EMAIL" >> .env
 fi
 REMOTE
-echo "=== [3/6] publishing the SDK's Maven repository ==="
+echo "=== [3/7] publishing the SDK's Maven repository ==="
 # The SDK artifacts are built on the build host and copied here, so a host
 # app can depend on them from the same URL it uses for the service.
 MAVEN_SRC="${OF_MAVEN_REPO_SRC:-$REPO_DIR/android-sdk/maven-repo}"
@@ -81,7 +81,7 @@ else
   echo "build the SDK first: ./gradlew publishReleasePublicationToLocalMavenRepository" >&2
 fi
 
-echo "=== [4/6] fetching the Caddy release and building the images ==="
+echo "=== [4/7] fetching the Caddy release and building the images ==="
 # Caddy is fetched on the host, because the container build may have no
 # route to GitHub or to a package mirror.
 "${SSH[@]}" bash -s -- "$REMOTE_DIR" "$CADDY_VERSION" <<'REMOTE'
@@ -102,10 +102,10 @@ REMOTE
 
 "${SSH[@]}" "cd $REMOTE_DIR/deploy && docker compose build --pull api caddy"
 
-echo "=== [5/6] starting the stack ==="
+echo "=== [5/7] starting the stack ==="
 "${SSH[@]}" "cd $REMOTE_DIR/deploy && docker compose up -d && docker compose ps"
 
-echo "=== [6/6] waiting for the service to answer ==="
+echo "=== [6/7] waiting for the service to answer ==="
 # The API is not published on the host, so it is checked from inside the
 # compose network.
 for attempt in $(seq 1 30); do
@@ -120,6 +120,50 @@ for attempt in $(seq 1 30); do
   fi
   sleep 2
 done
+
+echo "=== [7/7] checking the SDK's Maven repository is actually served ==="
+# The public URL cannot be used for this check yet: Caddy answers HTTPS only
+# once it holds a certificate, and that needs inbound 80/443. So the check
+# runs the same Caddy image with the same repository mount on a loopback port.
+# This catches the failure mode where the artifacts were never uploaded or
+# the volume was never mounted — both of which leave /maven/ silently empty.
+"${SSH[@]}" bash -s -- "$REMOTE_DIR" <<'REMOTE_CHECK'
+set -euo pipefail
+REMOTE_DIR="$1"
+REPO="$REMOTE_DIR/android-sdk/maven-repo"
+POM="com/kkkkikun/openfeedback/openfeedback-core/0.1.0/openfeedback-core-0.1.0.pom"
+
+if [ ! -f "$REPO/$POM" ]; then
+  echo "the Maven repository is missing on the host: $REPO/$POM" >&2
+  echo "build the SDK and deploy again" >&2
+  exit 1
+fi
+
+cat > /tmp/of-maven-check.Caddyfile <<'EOF'
+:8081 {
+	handle_path /maven/* {
+		root * /srv/maven
+		file_server
+	}
+}
+EOF
+
+docker rm -f of-maven-check >/dev/null 2>&1 || true
+docker run -d --name of-maven-check -p 127.0.0.1:8081:8081 \
+  -v /tmp/of-maven-check.Caddyfile:/etc/caddy/Caddyfile:ro \
+  -v "$REPO:/srv/maven:ro" \
+  openfeedback-caddy:latest >/dev/null
+trap 'docker rm -f of-maven-check >/dev/null 2>&1 || true' EXIT
+sleep 4
+
+code=$(curl -sS --max-time 10 -o /dev/null -w '%{http_code}' \
+  "http://127.0.0.1:8081/maven/$POM" || echo 000)
+if [ "$code" != "200" ]; then
+  echo "the Maven repository is not being served (HTTP $code)" >&2
+  exit 1
+fi
+echo "the Maven repository is served at /maven/"
+REMOTE_CHECK
 
 # The public URL only answers once Caddy holds a certificate. That needs
 # ports 80 and 443 to be reachable from the internet, so a failure here is
