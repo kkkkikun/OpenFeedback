@@ -1,0 +1,31 @@
+# Caddy image built from the upstream release tarball.
+#
+# The official caddy Docker image is only on Docker Hub, and some networks
+# cannot reach either Docker Hub or the Alpine package mirrors. So the
+# tarball is downloaded on the host (see deploy.sh) and copied in here; the
+# image build itself needs no network at all.
+ARG BASE_IMAGE=alpine:3.20
+FROM ${BASE_IMAGE}
+
+ARG CADDY_VERSION=2.11.4
+ARG TARGETARCH=amd64
+ARG CADDY_TARBALL=.cache/caddy.tar.gz
+
+COPY ${CADDY_TARBALL} /tmp/caddy.tar.gz
+
+# The Alpine base image already ships the CA bundle and busybox tar, so no
+# package installation (and no package mirror) is needed.
+# The binary is located with find because the release tarball's layout has
+# changed between releases (flat versus a versioned directory).
+RUN set -eux; \
+    tar -xzf /tmp/caddy.tar.gz -C /tmp; \
+    caddy_bin="$(find /tmp -maxdepth 2 -type f -name caddy | head -n 1)"; \
+    if [ -z "$caddy_bin" ]; then echo "the caddy binary was not found in the tarball" >&2; exit 1; fi; \
+    mv "$caddy_bin" /usr/bin/caddy; \
+    chmod +x /usr/bin/caddy; \
+    rm -rf /tmp/caddy.tar.gz /tmp/caddy_* /tmp/LICENSE /tmp/README.md; \
+    caddy version
+
+EXPOSE 80 443
+
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

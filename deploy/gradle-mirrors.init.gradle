@@ -1,0 +1,57 @@
+// Gradle repository fix for networks where Maven Central is unreachable.
+//
+// This lives in the developer's Gradle home, not in the project, so the
+// repository keeps working with the standard repositories everywhere else.
+//
+// It removes only the unreachable Maven Central entries and adds mirrors.
+// Repositories the project declares itself (for example the OpenFeedback
+// SDK's own Maven repository) are left alone on purpose: they are usually
+// file:// or a private host, and they must keep working.
+
+def MIRRORS = [
+    'https://maven.aliyun.com/repository/google',
+    'https://maven.aliyun.com/repository/public',
+    'https://maven.aliyun.com/repository/gradle-plugin',
+]
+
+def BLOCKED = [
+    'repo.maven.apache.org',
+    'repo1.maven.org',
+]
+
+def fixRepositories = { repos ->
+    def blocked = repos.findAll { repo ->
+        if (!repo.hasProperty('url') || repo.url == null) return false
+        def text = repo.url.toString()
+        return BLOCKED.any { text.contains(it) }
+    }
+    blocked.each { repos.remove(it) }
+
+    MIRRORS.eachWithIndex { repoUrl, index ->
+        def name = "mirror${index}"
+        if (repos.findByName(name) == null) {
+            repos.maven { repo ->
+                repo.name = name
+                repo.url = repoUrl
+            }
+        }
+    }
+}
+
+settingsEvaluated { settings ->
+    fixRepositories(settings.pluginManagement.repositories)
+    try {
+        fixRepositories(settings.dependencyResolutionManagement.repositories)
+    } catch (Exception ignored) {
+        // Older Gradle versions have no dependencyResolutionManagement block.
+    }
+}
+
+// Only the buildscript classpath is patched at the project level. Project
+// dependency repositories are left alone, because a settings block may set
+// FAIL_ON_PROJECT_REPOS and adding a repository there breaks the build.
+allprojects {
+    buildscript {
+        repositories { fixRepositories(delegate) }
+    }
+}

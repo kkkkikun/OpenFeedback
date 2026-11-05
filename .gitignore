@@ -43,6 +43,7 @@ unpackage/
 # Local tooling and secrets
 .ssh_helper.py
 deploy/.env
+deploy/.cache/
 .env
 .env.*
 !.env.example
@@ -50,3 +51,6 @@ deploy/.env
 *.key
 .DS_Store
 Thumbs.db
+
+# Published SDK artifacts (rebuilt by the publish task)
+android-sdk/maven-repo/

@@ -1,5 +1,9 @@
 # Single-stage image for the OpenFeedback API and admin UI.
-FROM python:3.12-slim
+#
+# BASE_IMAGE is a build argument so a deployment behind a registry mirror can
+# point at a mirror without editing this file.
+ARG BASE_IMAGE=python:3.12-slim
+FROM ${BASE_IMAGE}
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -8,8 +12,16 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 # Build tools are not needed at runtime; the wheels are all pure Python.
+# PIP_INDEX_URL lets a deployment behind a firewall point at a mirror;
+# pip picks it up from the environment on its own.
+ARG PIP_INDEX_URL
+ENV PIP_INDEX_URL=${PIP_INDEX_URL}
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN if [ -n "$PIP_INDEX_URL" ]; then \
+        pip install --no-cache-dir --index-url "$PIP_INDEX_URL" --trusted-host "$(echo "$PIP_INDEX_URL" | awk -F/ '{print $3}')" -r requirements.txt; \
+    else \
+        pip install --no-cache-dir -r requirements.txt; \
+    fi
 
 COPY alembic.ini .
 COPY alembic ./alembic

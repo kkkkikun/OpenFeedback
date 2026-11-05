@@ -1,41 +1,53 @@
 # Caddy configuration for OpenFeedback.
 #
-# Caddy obtains and renews the TLS certificate automatically. Replace
-# feedback.example.com with the real hostname before starting.
+# The public host is taken from the environment so the same file serves an
+# IP address or a hostname:
+#   OF_PUBLIC_HOST=https://feedback.example.com   (hostname)
+#   OF_PUBLIC_HOST=https://203.0.113.10            (IP address)
+#
+# The `shortlived` certificate profile is required for IP-address
+# certificates and also works for hostnames. These certificates live about
+# six days; Caddy renews them automatically, well before they expire.
 
 {
-	email admin@example.com
+	email {$ACME_EMAIL:admin@example.com}
+	cert_issuer acme {
+		profile shortlived
+	}
 }
 
-feedback.example.com {
+{$OF_PUBLIC_HOST:https://feedback.example.com} {
 	encode zstd gzip
 
-	# Uploaded screenshots can be a few MB; the app's own limit is 2 MB per
+	# Uploaded screenshots can be a few MB; the app's own limits are 2 MB per
 	# file and 3 files per submission.
 	request_body {
 		max_size 12MB
 	}
 
+	# The SDK's Maven repository. A host app declares this one URL and pins
+	# an exact version:
+	#   maven { url = uri("https://<host>/maven/") }
+	#   implementation("com.kkkkikun.openfeedback:openfeedback-compose:0.1.0")
+	handle_path /maven/* {
+		root * /srv/maven
+		file_server
+	}
+
 	# The admin UI and the API are both behind this host.
-	handle {
-		reverse_proxy api:8080 {
-			header_up X-Real-IP {remote_host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
-		}
+	#
+	# `header_up` replaces the header instead of appending to it. Caddy's
+	# default would append the real address to whatever the client sent, and
+	# the app reads the first entry of X-Forwarded-For, so a client could
+	# otherwise spoof its way past the rate limit.
+	reverse_proxy api:8080 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
 	}
 
 	log {
 		output stdout
 		format console
-		# The query string can carry a search term, so it is not logged.
-		format filter {
-			wrap console
-			fields {
-				uri query {
-					replace delete
-				}
-			}
-		}
 	}
 }
