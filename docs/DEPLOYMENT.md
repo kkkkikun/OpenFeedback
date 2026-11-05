@@ -71,6 +71,39 @@ Caddy 会自己重试，端口放通后通常几分钟内自动签发成功。
 如果后面加了域名，改 `.env` 里的 `OF_PUBLIC_HOST` 再重新部署即可；
 短周期证书对域名同样有效。
 
+#### 按 IP 访问时必须配 `default_sni`
+
+客户端连 `https://<IP>` 时**不会发 SNI** —— RFC 6066 禁止在 Server Name
+扩展里放 IP 字面量。Caddy 于是没有名字去匹配站点，找不到证书，
+握手会直接失败：
+
+```
+curl: (35) error:0A000438:SSL routines::tlsv1 alert internal error
+```
+
+**App 走的是同一套 TLS 栈，所以它也会中招** —— 不是只有命令行工具的问题。
+
+`.env` 里的 `OF_DEFAULT_SNI` 就是给这类客户端的兜底名字，
+取值必须是证书签发时用的那个标识（不含 scheme 与端口）。
+`deploy.sh` 会从 `OF_PUBLIC_HOST` 自动推导，一般不用手填。
+
+验证办法：
+
+```bash
+# 不带 SNI（模拟手机 App 的行为）—— 必须返回 200
+curl https://<IP>/api/v1/health
+
+# 证书与链
+echo | openssl s_client -connect <IP>:443 2>/dev/null \
+  | openssl x509 -noout -issuer -dates -ext subjectAltName
+```
+
+#### 证书每 6 天续期
+
+`shortlived` 证书有效期约 6 天，Caddy 会自动续期。
+续期同样需要 80 或 443 在公网可达 —— **放行之后不要再关**，
+否则服务会在几天内变成不可用。
+
 ## 日常运维
 
 ### 查看状态
