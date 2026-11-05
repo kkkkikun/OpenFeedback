@@ -41,6 +41,12 @@ set -euo pipefail
 PUBLIC_HOST="$1"
 ACME_EMAIL="$2"
 cd "$3/deploy"
+
+# The SNI fallback Caddy uses for clients that connect by IP. It is the host
+# part of OF_PUBLIC_HOST, without the scheme.
+DEFAULT_SNI="${PUBLIC_HOST#*://}"
+DEFAULT_SNI="${DEFAULT_SNI%%/*}"
+DEFAULT_SNI="${DEFAULT_SNI%%:*}"
 if [ ! -f .env ]; then
   ADMIN_PASSWORD="$(openssl rand -base64 24 | tr -d '/+=' | head -c 24)"
   IP_SALT="$(openssl rand -hex 32)"
@@ -56,6 +62,7 @@ OF_COOKIE_SECURE=true
 OF_SESSION_TTL_HOURS=12
 OF_IP_HASH_SALT=$IP_SALT
 OF_PUBLIC_HOST=$PUBLIC_HOST
+OF_DEFAULT_SNI=$DEFAULT_SNI
 ACME_EMAIL=$ACME_EMAIL
 EOF
   chmod 600 .env
@@ -64,6 +71,7 @@ EOF
 else
   echo ".env exists; keeping the existing secrets"
   grep -q '^OF_PUBLIC_HOST=' .env || echo "OF_PUBLIC_HOST=$PUBLIC_HOST" >> .env
+  grep -q '^OF_DEFAULT_SNI=' .env || echo "OF_DEFAULT_SNI=$DEFAULT_SNI" >> .env
   grep -q '^ACME_EMAIL=' .env || echo "ACME_EMAIL=$ACME_EMAIL" >> .env
 fi
 REMOTE

@@ -65,6 +65,9 @@ services:
       # The host clients connect to. An IP address works: Let's Encrypt issues
       # short-lived certificates for IP addresses.
       OF_PUBLIC_HOST: ${OF_PUBLIC_HOST:?set the public host}
+      # The SNI fallback for clients that connect by IP (they send no SNI).
+      # Without it the TLS handshake fails for every IP client.
+      OF_DEFAULT_SNI: ${OF_DEFAULT_SNI:-}
       ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro

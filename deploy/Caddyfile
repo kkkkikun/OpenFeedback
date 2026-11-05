@@ -11,6 +11,26 @@
 
 {
 	email {$ACME_EMAIL:admin@example.com}
+
+	# The named volumes are mounted at /data and /config. Caddy's defaults
+	# are under /root/.local/share/caddy, which lives in the container's
+	# writable layer — so without these two lines every container recreate
+	# would throw away the certificate and the ACME account, and the server
+	# would have to re-register with Let's Encrypt on every deployment.
+	data_dir /data
+	config_dir /config
+
+	# Clients that connect by IP address do not send an SNI: RFC 6066 forbids
+	# putting an IP literal in the Server Name extension. Caddy therefore has
+	# no name to match the site against, finds no certificate, and answers the
+	# handshake with "tlsv1 alert internal error" — the phone's HTTPS client
+	# would fail exactly the same way.
+	#
+	# default_sni gives Caddy a name to fall back to, which makes the handshake
+	# succeed for IP clients. It must be the same identifier the certificate
+	# was issued for, without a scheme or path.
+	default_sni {$OF_DEFAULT_SNI:203.0.113.10}
+
 	cert_issuer acme {
 		profile shortlived
 	}
